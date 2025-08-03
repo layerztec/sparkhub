@@ -1,0 +1,34 @@
+{
+  "name": "SparkHub",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "bun test",
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/client/app.tsx --outdir dist --target browser --production",
+    "build:watch": "bun build src/client/app.tsx --outdir dist --target browser --watch",
+    "start": "bun run build && PORT=443 bun run src/index.ts",
+    "dev:full": "concurrently \"bun run dev\" \"bun run build:watch\"",
+    "check": "biome check src/",
+    "check:fix": "biome check --fix src/"
+  },
+  "dependencies": {
+    "@buildonspark/spark-sdk": "0.2.5",
+    "@elysiajs/eden": "^1.3.2",
+    "@elysiajs/static": "^1.3.0",
+    "@elysiajs/swagger": "^1.3.1",
+    "bech32": "^2.0.0",
+    "bolt11": "^1.4.1",
+    "browserify-cipher": "^1.0.1",
+    "elysia": "latest",
+    "preact": "^10.19.6",
+    "preact-router": "^4.1.2",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.1.2",
+    "@types/qrcode": "^1.5.5",
+    "bun-types": "latest",
+    "concurrently": "^9.2.0"
+  },
+  "module": "src/index.js"
+}
