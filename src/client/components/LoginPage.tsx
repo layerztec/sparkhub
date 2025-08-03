@@ -9,7 +9,7 @@ import { SecureStorage } from '../../storage';
 type LoginStep = 'initial' | 'existing' | 'new';
 
 export function LoginPage({ path: _path }: { path?: string }) {
-    const { password: passwordInContext, setPassword: setPasswordInContext } = useContext(PasswordContext);
+    const { setPassword: setPasswordInContext } = useContext(PasswordContext);
     const [step, setStep] = useState<LoginStep>('initial');
     const [seedPhrase, setSeedPhrase] = useState('');
     const [message, setMessage] = useState('');

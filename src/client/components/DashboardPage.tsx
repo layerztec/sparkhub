@@ -16,7 +16,7 @@ interface PasswordDialogProps {
 }
 
 function PasswordDialog({ onSuccess, onCancel, onError, error }: PasswordDialogProps) {
-    const { password: passwordFromContext, setPassword: setPasswordInContext } = useContext(PasswordContext);
+    const { setPassword: setPasswordInContext } = useContext(PasswordContext);
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -338,7 +338,7 @@ function ClaimUsernameModal({ onSuccess, onCancel, onError, error, isLoading, va
 }
 
 export function DashboardPage({ path: _path }: { path?: string }) {
-    const { password: passwordFromContext, setPassword: setPasswordInContext } = useContext(PasswordContext);
+    const { password: passwordFromContext } = useContext(PasswordContext);
     const [wallet, setWallet] = useState<SparkWallet | null>(null);
     const [balance, setBalance] = useState<number | null>(null);
     const [showPasswordDialog, setShowPasswordDialog] = useState(false);

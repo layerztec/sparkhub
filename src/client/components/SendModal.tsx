@@ -65,7 +65,7 @@ export function SendModal({ wallet, onClose }: SendModalProps) {
                 expiry: new Date((decoded.timeExpireDate || 0) * 1000),
                 timeExpireDate: new Date(decoded.timeExpireDate || 0 * 1000),
             });
-        } catch (err) {
+        } catch (_) {
             setError('Invalid lightning invoice format');
         }
     }, [inputValue]);
@@ -96,7 +96,7 @@ export function SendModal({ wallet, onClose }: SendModalProps) {
                         return Promise.race([fetch(resource, options), new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('Request timed out')), timeout))]);
                     };
 
-                    let fetchedLnurlpData;
+                    let fetchedLnurlpData: any;
                     try {
                         const resp = await fetchWithTimeout(url, { timeout: 9000 });
                         if (!resp.ok) {

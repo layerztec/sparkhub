@@ -92,7 +92,7 @@ export class SecureStorage {
                 localStorage.removeItem(DEVICE_SALT_KEY);
             }
             return true;
-        } catch (error) {
+        } catch (_) {
             return false;
         }
     }
@@ -106,7 +106,7 @@ export class SecureStorage {
         try {
             localStorage.removeItem(DEVICE_SALT_KEY);
             return true;
-        } catch (error) {
+        } catch (_) {
             return false;
         }
     }
