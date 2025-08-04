@@ -11,8 +11,8 @@ interface DecodedInvoice {
     satoshis: number | null;
     description: string;
     paymentHash: string;
-    expiry: Date;
-    timeExpireDate: Date;
+    timestamp: number;
+    timeExpireDate: number;
 }
 
 interface LnurlpData {
@@ -58,12 +58,14 @@ export function SendModal({ wallet, onClose }: SendModalProps) {
         try {
             const decoded = decode(inputValue);
 
+            console.log('decoded', decoded);
+
             setDecodedInvoice({
                 satoshis: decoded.satoshis || null,
                 description: String(decoded.tags?.find(tag => tag.tagName === 'description')?.data) || '',
                 paymentHash: String(decoded.tags?.find(tag => tag.tagName === 'payment_hash')?.data) || '',
-                expiry: new Date((decoded.timeExpireDate || 0) * 1000),
-                timeExpireDate: new Date(decoded.timeExpireDate || 0 * 1000),
+                timestamp: (decoded.timestamp || 0) * 1000,
+                timeExpireDate: (decoded.timeExpireDate || 0) * 1000,
             });
         } catch (_) {
             setError('Invalid lightning invoice format');
@@ -485,12 +487,8 @@ export function SendModal({ wallet, onClose }: SendModalProps) {
 
                         <div style={styles.invoiceInfo}>
                             <div style={styles.infoRow}>
-                                <span style={styles.infoLabel}>Payment Hash:</span>
-                                <span style={styles.infoValue}>{decodedInvoice.paymentHash.substring(0, 12)}...</span>
-                            </div>
-                            <div style={styles.infoRow}>
                                 <span style={styles.infoLabel}>Expires:</span>
-                                <span style={styles.infoValue}>{decodedInvoice.timeExpireDate.toLocaleString()}</span>
+                                <span style={styles.infoValue}>{decodedInvoice.timeExpireDate ? new Date(decodedInvoice.timeExpireDate).toLocaleString() : 'Unknown'}</span>
                             </div>
                         </div>
                     </>
