@@ -11,7 +11,7 @@ export function IndexPage({ path: _path }: { path?: string }) {
             {/* Hero Section */}
             <div
                 style={{
-                    padding: '60px 20px',
+                    padding: '60px 0px',
                     textAlign: 'center',
                     color: 'white',
                 }}
@@ -19,13 +19,25 @@ export function IndexPage({ path: _path }: { path?: string }) {
                 <div style={{ maxWidth: '800px', margin: '0 auto' }}>
                     <p
                         style={{
-                            fontSize: '1.3rem',
+                            fontSize: '2rem',
+                            fontWeight: '700',
                             opacity: 0.9,
-                            lineHeight: '1.5',
-                            margin: '0 auto 40px auto',
+                            margin: '0 auto 20px auto',
+                            textAlign: 'left',
                         }}
                     >
-                        Get your own in-browser <strong>self-custodial Lightning Wallet</strong> and <strong>Lightning Address</strong> to send, receive, and manage Bitcoin instantly. <br/>
+                        A self-custodial Lightning Wallet and Address.
+                    </p>
+                    <p
+                        style={{
+                            fontSize: '1.5rem',
+                            fontWeight: '700',
+                            opacity: 0.8,
+                            margin: '0 auto 80px auto',
+                            textAlign: 'left',
+                        }}
+                    >
+                       In-browser, instant, and secure.
                     </p>
                         
                     {/* CTA Button */}
@@ -57,59 +69,17 @@ export function IndexPage({ path: _path }: { path?: string }) {
                             e.currentTarget.style.boxShadow = '0 8px 25px rgba(240, 147, 251, 0.4)';
                         }}
                     >
-                        🚀 Get Started Here
+                        Get Started Here
                     </button>
 
-                    {/* Trust indicators */}
-                    <div
-                        style={{
-                            marginTop: '40px',
-                            fontSize: '0.9rem',
-                            opacity: 0.8,
-                            display: 'flex',
-                            justifyContent: 'center',
-                            gap: '30px',
-                            flexWrap: 'wrap',
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                            }}
-                        >
-                            <span>🔒</span>
-                            <span>100% Self-custodial</span>
-                        </div>
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                            }}
-                        >
-                            <span>⚡</span>
-                            <span>Instant Payments</span>
-                        </div>
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                            }}
-                        >
-                            <span>🆓</span>
-                            <span>Free to Use</span>
-                        </div>
-                    </div>
+                   
                 </div>
             </div>
 
             {/* Features Section */}
             <div
                 style={{
-                    padding: '80px 20px',
+                    padding: '80px 0px',
                 }}
             >
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -250,7 +220,7 @@ export function IndexPage({ path: _path }: { path?: string }) {
             {/* How it works section */}
             <div
                 style={{
-                    padding: '80px 20px',
+                    padding: '80px 0px',
                 }}
             >
                 <div
@@ -470,7 +440,7 @@ export function IndexPage({ path: _path }: { path?: string }) {
                             route('/login');
                         }}
                         style={{
-                            padding: '20px 50px',
+                            padding: '20px 6px',
                             fontSize: '1.3rem',
                             fontWeight: '700',
                             background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',

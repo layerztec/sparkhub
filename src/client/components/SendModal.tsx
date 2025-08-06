@@ -357,7 +357,7 @@ export function SendModal({ wallet, onClose }: SendModalProps) {
             fontWeight: '500',
         },
         buttonContainer: {
-            display: 'flex',
+            display: 'grid',
             gap: '12px',
             marginTop: '24px',
         },
