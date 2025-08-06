@@ -206,7 +206,6 @@ export function LoginPage({ path: _path }: { path?: string }) {
     const styles = {
         container: {
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             display: 'flex',
             flexDirection: 'column' as const,
             alignItems: 'center',

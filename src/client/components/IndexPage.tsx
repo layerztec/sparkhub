@@ -6,7 +6,6 @@ export function IndexPage({ path: _path }: { path?: string }) {
         <div
             style={{
                 minHeight: '100vh',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             }}
         >
             {/* Hero Section */}
@@ -14,37 +13,21 @@ export function IndexPage({ path: _path }: { path?: string }) {
                 style={{
                     padding: '60px 20px',
                     textAlign: 'center',
-                    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%)',
                     color: 'white',
                 }}
             >
                 <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                    {/* Logo/Brand */}
-                    <div
-                        style={{
-                            fontSize: '3rem',
-                            fontWeight: '800',
-                            marginBottom: '20px',
-                            textShadow: '0 4px 20px rgba(0,0,0,0.3)',
-                        }}
-                    >
-                        Layerz.me
-                    </div>
-
-                    {/* Subtitle */}
                     <p
                         style={{
                             fontSize: '1.3rem',
-                            marginBottom: '40px',
                             opacity: 0.9,
                             lineHeight: '1.5',
-                            maxWidth: '600px',
-                            margin: '0 auto 40px',
+                            margin: '0 auto 40px auto',
                         }}
                     >
-                        Get your own in-browser <strong>self-custodial Lightning Wallet</strong> and <strong>Lightning Address</strong> to send, receive, and manage Bitcoin instantly
+                        Get your own in-browser <strong>self-custodial Lightning Wallet</strong> and <strong>Lightning Address</strong> to send, receive, and manage Bitcoin instantly. <br/>
                     </p>
-
+                        
                     {/* CTA Button */}
                     <button
                         type="button"
@@ -127,7 +110,6 @@ export function IndexPage({ path: _path }: { path?: string }) {
             <div
                 style={{
                     padding: '80px 20px',
-                    background: 'rgba(255,255,255,0.05)',
                 }}
             >
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -269,7 +251,6 @@ export function IndexPage({ path: _path }: { path?: string }) {
             <div
                 style={{
                     padding: '80px 20px',
-                    background: 'rgba(255,255,255,0.02)',
                 }}
             >
                 <div
