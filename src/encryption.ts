@@ -1,6 +1,7 @@
 import { scryptAsync } from '@noble/hashes/scrypt';
 // @ts-ignore dont want to install @types/browserify-cipher as it has incorrect definition of the func we use
 import * as aes from 'browserify-cipher';
+// @ts-ignore its purejs, we donthave types for it
 import { hexToUint8Array, uint8ArrayToHex } from './uint8array-extras';
 
 const createCipheriv = aes.createCipheriv;

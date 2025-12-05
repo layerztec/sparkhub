@@ -629,20 +629,6 @@ export function LoginPage({ path: _path }: { path?: string }) {
                                 lineHeight: '1.5',
                                 textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                                 animation: 'pulse 2s infinite',
-                                '@keyframes pulse': {
-                                    '0%': {
-                                        transform: 'scale(1)',
-                                        boxShadow: '0 0 0 0 rgba(255, 255, 255, 0.4)',
-                                    },
-                                    '70%': {
-                                        transform: 'scale(1.02)',
-                                        boxShadow: '0 0 0 10px rgba(255, 255, 255, 0)',
-                                    },
-                                    '100%': {
-                                        transform: 'scale(1)',
-                                        boxShadow: '0 0 0 0 rgba(255, 255, 255, 0)',
-                                    },
-                                },
                             }}
                         >
                             <div
@@ -651,17 +637,6 @@ export function LoginPage({ path: _path }: { path?: string }) {
                                     fontWeight: '600',
                                     animation: 'shake 1.5s infinite',
                                     display: 'inline-block',
-                                    '@keyframes shake': {
-                                        '0%, 100%': {
-                                            transform: 'translateX(0)',
-                                        },
-                                        '10%, 30%, 50%, 70%, 90%': {
-                                            transform: 'translateX(-2px)',
-                                        },
-                                        '20%, 40%, 60%, 80%': {
-                                            transform: 'translateX(2px)',
-                                        },
-                                    },
                                 }}
                             >
                                 ⚠️ Important:
