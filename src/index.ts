@@ -4,7 +4,7 @@ import { Elysia, t } from 'elysia';
 import config from './config';
 import serverConfig from './config-server';
 import { databaseService } from './database-service';
-import { createInvoiceForSparkAddress, initializeSparkWallet } from './spark-service';
+import { createInvoiceForSparkAddress, initializeSparkWallet, isSparkAddress } from './spark-service';
 
 const pckg = require('../package.json');
 
@@ -87,13 +87,19 @@ const app = new Elysia(serverConfig.elysia)
             } = query;
 
             // Validate required parameters
-            if (!amount) {
+            if (!amount || !username) {
                 throw new Error('Missing required parameters');
             }
 
-            const sparkAddress = databaseService.getSparkAddressByUsername(username);
-            if (!sparkAddress) {
-                return { status: 'ERROR', reason: 'Username not found' };
+            let sparkAddress = username;
+
+            if (!isSparkAddress(username)) {
+                const sparkFromDatabase = databaseService.getSparkAddressByUsername(username);
+                if (!sparkFromDatabase) {
+                    return { status: 'ERROR', reason: 'Username not found' };
+                }
+
+                sparkAddress = sparkFromDatabase;
             }
 
             // FIXME: use the username to get the spark address

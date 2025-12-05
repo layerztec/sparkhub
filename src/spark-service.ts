@@ -52,6 +52,15 @@ export async function createInvoiceForSparkAddress(sparkAddress: string, amountS
     return invoice.invoice.encodedInvoice;
 }
 
+export function isSparkAddress(address: string): boolean {
+    try {
+        bech32m.decode(address);
+        return address.startsWith('spark1');
+    } catch (_) {
+        return false;
+    }
+}
+
 function convert5BitArrayToHex(words: number[]) {
     let bits = 0;
     let value = 0;
