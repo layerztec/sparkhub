@@ -16,8 +16,8 @@ export async function initializeSparkWallet() {
             },
         });
 
-        wallet.on('transfer:claimed', (transferId: string, balance: number) => {
-            console.log(`Transfer ${transferId} claimed. New balance: ${balance}`);
+        wallet.on('transfer:claimed', (transferId: string, updatedBalance: bigint) => {
+            console.log(`Transfer ${transferId} claimed. New balance: ${Number(updatedBalance)}`);
         });
 
         sparkWallet = wallet;
