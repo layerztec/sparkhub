@@ -37,9 +37,9 @@ export function IndexPage({ path: _path }: { path?: string }) {
                             textAlign: 'left',
                         }}
                     >
-                       In-browser, instant, and secure.
+                        In-browser, instant, and secure.
                     </p>
-                        
+
                     {/* CTA Button */}
                     <button
                         type="button"
@@ -71,8 +71,6 @@ export function IndexPage({ path: _path }: { path?: string }) {
                     >
                         Get Started Here
                     </button>
-
-                   
                 </div>
             </div>
 
