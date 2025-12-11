@@ -25,6 +25,7 @@ const app = new Elysia(serverConfig.elysia)
                 },
             },
             path: '/swagger',
+            excludeStaticFile: true,
         })
     )
     .onAfterHandle(({ set }) => {
