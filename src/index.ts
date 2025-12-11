@@ -15,11 +15,6 @@ initializeSparkWallet().catch(error => {
 });
 
 const app = new Elysia(serverConfig.elysia)
-    .onAfterHandle(({ set }) => {
-        set.headers['Access-Control-Allow-Origin'] = '*';
-        set.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
-        set.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
-    })
     .use(
         swagger({
             documentation: {
@@ -29,8 +24,14 @@ const app = new Elysia(serverConfig.elysia)
                     description: 'SPA for self-custodial Lightning Address',
                 },
             },
+            path: '/swagger',
         })
     )
+    .onAfterHandle(({ set }) => {
+        set.headers['Access-Control-Allow-Origin'] = '*';
+        set.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
+        set.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+    })
     .use(
         staticPlugin({
             assets: 'dist',
@@ -259,8 +260,10 @@ const app = new Elysia(serverConfig.elysia)
         }
     )
 
-    // Lightning Address endpoint for direct username access
-    .get('/:username', () => Bun.file('public/index.html'))
+    // Catch-all for SPA - must be last
+    .get('/:username', () => {
+        return Bun.file('public/index.html');
+    })
 
     .listen(process.env.PORT ?? 3000);
 
