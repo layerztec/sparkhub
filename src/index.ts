@@ -1,12 +1,60 @@
 import { staticPlugin } from '@elysiajs/static';
 import { swagger } from '@elysiajs/swagger';
-import { Elysia, t } from 'elysia';
+import { Elysia, type Static, t } from 'elysia';
 import config from './config';
 import serverConfig from './config-server';
 import { databaseService } from './database-service';
 import { createInvoiceForSparkAddress, initializeSparkWallet, isSparkAddress } from './spark-service';
 
 const pckg = require('../package.json');
+
+// Response schemas
+const pingResponseSchema = t.Object({
+    status: t.String(),
+    message: t.String(),
+});
+
+const lnurlPayResponseSchema = t.Object({
+    status: t.String(),
+    commentAllowed: t.Number(),
+    callback: t.String(),
+    maxSendable: t.Number(),
+    minSendable: t.Number(),
+    metadata: t.String(),
+    tag: t.String(),
+});
+
+const paymentCallbackResponseSchema = t.Union([
+    t.Object({
+        status: t.Literal('OK'),
+        pr: t.String(),
+        routes: t.Array(t.Any()),
+        disposable: t.Boolean(),
+        successAction: t.Object({
+            tag: t.String(),
+            message: t.String(),
+        }),
+    }),
+    t.Object({
+        status: t.Literal('ERROR'),
+        reason: t.String(),
+    }),
+]);
+
+const createUserResponseSchema = t.Object({
+    status: t.String(),
+    message: t.String(),
+    username: t.Optional(t.String()),
+    sparkAddress: t.Optional(t.String()),
+    existingUsername: t.Optional(t.String()),
+});
+
+const getUserResponseSchema = t.Object({
+    status: t.String(),
+    username: t.Optional(t.String()),
+    sparkAddress: t.Optional(t.String()),
+    message: t.Optional(t.String()),
+});
 
 // Initialize the Spark wallet
 initializeSparkWallet().catch(error => {
@@ -47,7 +95,13 @@ const app = new Elysia(serverConfig.elysia)
     )
 
     // Health check endpoint
-    .get('/ping', () => ({ status: 'ok', message: 'SparkHub is running' }))
+    .get('/ping', (): Static<typeof pingResponseSchema> => ({ status: 'ok', message: 'SparkHub is running' }), {
+        response: pingResponseSchema,
+        detail: {
+            summary: 'Health check',
+            description: 'Returns the status of the service',
+        },
+    })
 
     // Serve the frontend
     .get('/', () => Bun.file('public/index.html'))
@@ -55,7 +109,7 @@ const app = new Elysia(serverConfig.elysia)
     // LNURL-pay endpoint (/.well-known/lnurlp/{username})
     .get(
         '/.well-known/lnurlp/:username',
-        ({ params: { username } }) => {
+        ({ params: { username } }): Static<typeof lnurlPayResponseSchema> => {
             return {
                 status: 'OK',
                 commentAllowed: 140,
@@ -70,6 +124,7 @@ const app = new Elysia(serverConfig.elysia)
             params: t.Object({
                 username: t.String(),
             }),
+            response: lnurlPayResponseSchema,
             detail: {
                 tags: ['LNURL'],
                 summary: 'Get LNURL-pay metadata',
@@ -81,7 +136,7 @@ const app = new Elysia(serverConfig.elysia)
     // Payment callback endpoint
     .get(
         '/api/lightning-address/:username/callback',
-        async ({ params: { username }, query }) => {
+        async ({ params: { username }, query }): Promise<Static<typeof paymentCallbackResponseSchema>> => {
             // Parse required LNURL-pay callback parameters
             const {
                 amount, // Amount in millisatoshis
@@ -129,6 +184,7 @@ const app = new Elysia(serverConfig.elysia)
                 comment: t.Optional(t.String({ maxLength: 140 })),
                 proofofpayer: t.Optional(t.String()),
             }),
+            response: paymentCallbackResponseSchema,
             detail: {
                 tags: ['Lightning Address'],
                 summary: 'Payment callback',
@@ -140,7 +196,7 @@ const app = new Elysia(serverConfig.elysia)
     // API endpoint to associate username with spark address
     .post(
         '/api/users',
-        ({ body }) => {
+        ({ body }): Static<typeof createUserResponseSchema> => {
             const { username, sparkAddress } = body;
 
             // Validate input
@@ -191,6 +247,7 @@ const app = new Elysia(serverConfig.elysia)
                 username: t.String({ minLength: 1, maxLength: 50 }),
                 sparkAddress: t.String({ minLength: 1 }),
             }),
+            response: createUserResponseSchema,
             detail: {
                 tags: ['Users'],
                 summary: 'Associate username with spark address',
@@ -202,7 +259,7 @@ const app = new Elysia(serverConfig.elysia)
     // API endpoint to get spark address by username
     .get(
         '/api/users/:username',
-        ({ params: { username } }) => {
+        ({ params: { username } }): Static<typeof getUserResponseSchema> => {
             const sparkAddress = databaseService.getSparkAddressByUsername(username);
 
             if (!sparkAddress) {
@@ -222,6 +279,7 @@ const app = new Elysia(serverConfig.elysia)
             params: t.Object({
                 username: t.String({ minLength: 1, maxLength: 50 }),
             }),
+            response: getUserResponseSchema,
             detail: {
                 tags: ['Users'],
                 summary: 'Get spark address by username',
@@ -233,7 +291,7 @@ const app = new Elysia(serverConfig.elysia)
     // API endpoint to get username by spark address
     .get(
         '/api/users/by-spark-address/:sparkAddress',
-        ({ params: { sparkAddress } }) => {
+        ({ params: { sparkAddress } }): Static<typeof getUserResponseSchema> => {
             const username = databaseService.getUsernameBySparkAddress(sparkAddress);
 
             if (!username) {
@@ -253,6 +311,7 @@ const app = new Elysia(serverConfig.elysia)
             params: t.Object({
                 sparkAddress: t.String({ minLength: 1 }),
             }),
+            response: getUserResponseSchema,
             detail: {
                 tags: ['Users'],
                 summary: 'Get username by spark address',
