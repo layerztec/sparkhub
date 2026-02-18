@@ -9,23 +9,36 @@ import { createInvoiceForSparkAddress, initializeSparkWallet, isSparkAddress } f
 const pckg = require('../package.json');
 
 type LogMeta = Record<string, unknown>;
-type RequestTrace = { requestId: string; startAt: number };
+
+const sanitizeOneLine = (value: string): string => value.replace(/\s+/g, ' ').trim();
+
+const formatLogValue = (value: unknown): string => {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    if (typeof value === 'bigint') return value.toString();
+    if (typeof value === 'string') return sanitizeOneLine(value);
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (value instanceof Error) {
+        return sanitizeOneLine(`${value.name}: ${value.message}`);
+    }
+    try {
+        return sanitizeOneLine(JSON.stringify(value, (_key, innerValue) => (typeof innerValue === 'bigint' ? innerValue.toString() : innerValue)));
+    } catch {
+        return '[Unserializable]';
+    }
+};
 
 const log = (level: 'INFO' | 'WARN' | 'ERROR', event: string, meta?: LogMeta): void => {
     const timestamp = new Date().toISOString();
-    if (meta) {
-        console.log(`[${timestamp}] [${level}] ${event}`, meta);
-        return;
-    }
-    console.log(`[${timestamp}] [${level}] ${event}`);
+    const entries = Object.entries(meta ?? {});
+    const metaText = entries.length === 0 ? '' : ` ${entries.map(([key, value]) => `${key}=${formatLogValue(value)}`).join(' ')}`;
+    console.log(`${timestamp} ${level} ${event}${metaText}`);
 };
 
 const logError = (event: string, error: unknown, meta?: LogMeta): void => {
     const details = error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : { value: String(error) };
     log('ERROR', event, { ...meta, error: details });
 };
-
-const requestTraces = new WeakMap<Request, RequestTrace>();
 
 // Response schemas
 const pingResponseSchema = t.Object({
@@ -96,52 +109,30 @@ const app = new Elysia(serverConfig.elysia)
             excludeStaticFile: true,
         })
     )
-    .onRequest(({ request }) => {
-        const requestId = crypto.randomUUID();
-        const startAt = Date.now();
-        const path = new URL(request.url).pathname;
-        requestTraces.set(request, { requestId, startAt });
-        log('INFO', 'http.request.started', {
-            requestId,
-            method: request.method,
-            path,
-            url: request.url,
-        });
-    })
     .onAfterHandle(({ set }) => {
         set.headers['Access-Control-Allow-Origin'] = '*';
         set.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
         set.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
     })
-    .onAfterResponse(({ request, set, store }) => {
+    .onAfterResponse(({ request, set }) => {
         const path = new URL(request.url).pathname;
-        const trace = requestTraces.get(request);
-        const typedStore = store as Record<string, unknown>;
-        const startAt = trace?.startAt ?? (typeof typedStore.startAt === 'number' ? typedStore.startAt : Date.now());
-        const elapsedMs = Date.now() - startAt;
+        const requestId = crypto.randomUUID();
         log('INFO', 'http.request.completed', {
-            requestId: trace?.requestId ?? typedStore.requestId,
+            requestId,
             method: request.method,
             path,
             statusCode: set.status,
-            elapsedMs,
         });
-        requestTraces.delete(request);
     })
-    .onError(({ request, code, error, store }) => {
+    .onError(({ request, code, error }) => {
         const path = new URL(request.url).pathname;
-        const trace = requestTraces.get(request);
-        const typedStore = store as Record<string, unknown>;
-        const startAt = trace?.startAt ?? (typeof typedStore.startAt === 'number' ? typedStore.startAt : Date.now());
-        const elapsedMs = Date.now() - startAt;
+        const requestId = crypto.randomUUID();
         logError('http.request.failed', error, {
-            requestId: trace?.requestId ?? typedStore.requestId,
+            requestId,
             method: request.method,
             path,
             errorCode: code,
-            elapsedMs,
         });
-        requestTraces.delete(request);
     })
     .use(
         staticPlugin({
@@ -157,20 +148,13 @@ const app = new Elysia(serverConfig.elysia)
     )
 
     // Health check endpoint
-    .get(
-        '/ping',
-        (): Static<typeof pingResponseSchema> => {
-            log('INFO', 'endpoint.ping.executed');
-            return { status: 'ok', message: 'SparkHub is running' };
+    .get('/ping', (): Static<typeof pingResponseSchema> => ({ status: 'ok', message: 'SparkHub is running' }), {
+        response: pingResponseSchema,
+        detail: {
+            summary: 'Health check',
+            description: 'Returns the status of the service',
         },
-        {
-            response: pingResponseSchema,
-            detail: {
-                summary: 'Health check',
-                description: 'Returns the status of the service',
-            },
-        }
-    )
+    })
 
     // Serve the frontend
     .get('/', () => Bun.file('public/index.html'))
@@ -179,7 +163,6 @@ const app = new Elysia(serverConfig.elysia)
     .get(
         '/.well-known/lnurlp/:username',
         ({ params: { username } }): Static<typeof lnurlPayResponseSchema> => {
-            log('INFO', 'endpoint.lnurlpay.metadata.generated', { username });
             return {
                 status: 'OK',
                 commentAllowed: 140,
@@ -207,11 +190,6 @@ const app = new Elysia(serverConfig.elysia)
     .get(
         '/api/lightning-address/:username/callback',
         async ({ params: { username }, query }): Promise<Static<typeof paymentCallbackResponseSchema>> => {
-            log('INFO', 'endpoint.lightning.callback.received', {
-                username,
-                amount: query.amount,
-                hasComment: Boolean(query.comment),
-            });
             // Parse required LNURL-pay callback parameters
             const {
                 amount, // Amount in millisatoshis
@@ -234,16 +212,10 @@ const app = new Elysia(serverConfig.elysia)
                 }
 
                 sparkAddress = sparkFromDatabase;
-                log('INFO', 'endpoint.lightning.callback.resolved_spark_address', { username, sparkAddress });
             }
 
             // FIXME: use the username to get the spark address
             const pr = await createInvoiceForSparkAddress(sparkAddress, Math.floor(Number(amount) / 1000), comment ?? 'Invoice');
-            log('INFO', 'endpoint.lightning.callback.invoice_created', {
-                username,
-                sparkAddress,
-                amountMsat: amount,
-            });
 
             return {
                 status: 'OK',
@@ -281,7 +253,6 @@ const app = new Elysia(serverConfig.elysia)
         '/api/users',
         ({ body }): Static<typeof createUserResponseSchema> => {
             const { username, sparkAddress } = body;
-            log('INFO', 'endpoint.users.create.received', { username, sparkAddress });
 
             // Validate input
             if (!username || !sparkAddress) {
@@ -314,7 +285,6 @@ const app = new Elysia(serverConfig.elysia)
             const success = databaseService.upsertUser(username, sparkAddress);
 
             if (success) {
-                log('INFO', 'endpoint.users.create.success', { username, sparkAddress });
                 return {
                     status: 'ok',
                     message: 'Username successfully associated with spark address',
@@ -349,7 +319,6 @@ const app = new Elysia(serverConfig.elysia)
     .get(
         '/api/users/:username',
         ({ params: { username } }): Static<typeof getUserResponseSchema> => {
-            log('INFO', 'endpoint.users.get_by_username.received', { username });
             const sparkAddress = databaseService.getSparkAddressByUsername(username);
 
             if (!sparkAddress) {
@@ -360,7 +329,6 @@ const app = new Elysia(serverConfig.elysia)
                 };
             }
 
-            log('INFO', 'endpoint.users.get_by_username.success', { username, sparkAddress });
             return {
                 status: 'ok',
                 username,
@@ -384,7 +352,6 @@ const app = new Elysia(serverConfig.elysia)
     .get(
         '/api/users/by-spark-address/:sparkAddress',
         ({ params: { sparkAddress } }): Static<typeof getUserResponseSchema> => {
-            log('INFO', 'endpoint.users.get_by_spark_address.received', { sparkAddress });
             const username = databaseService.getUsernameBySparkAddress(sparkAddress);
 
             if (!username) {
@@ -395,7 +362,6 @@ const app = new Elysia(serverConfig.elysia)
                 };
             }
 
-            log('INFO', 'endpoint.users.get_by_spark_address.success', { username, sparkAddress });
             return {
                 status: 'ok',
                 username,
@@ -417,7 +383,6 @@ const app = new Elysia(serverConfig.elysia)
 
     // Catch-all for SPA - must be last
     .get('/:username', () => {
-        log('INFO', 'endpoint.spa.username_route.served');
         return Bun.file('public/index.html');
     })
 
