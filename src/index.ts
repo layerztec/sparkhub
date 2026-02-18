@@ -40,6 +40,16 @@ const logError = (event: string, error: unknown, meta?: LogMeta): void => {
     log('ERROR', event, { ...meta, error: details });
 };
 
+const requestIds = new WeakMap<Request, string>();
+
+const getOrCreateRequestId = (request: Request): string => {
+    const existing = requestIds.get(request);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    requestIds.set(request, created);
+    return created;
+};
+
 // Response schemas
 const pingResponseSchema = t.Object({
     status: t.String(),
@@ -109,6 +119,10 @@ const app = new Elysia(serverConfig.elysia)
             excludeStaticFile: true,
         })
     )
+    .onRequest(({ request, set }) => {
+        const requestId = getOrCreateRequestId(request);
+        set.headers['x-request-id'] = requestId;
+    })
     .onAfterHandle(({ set }) => {
         set.headers['Access-Control-Allow-Origin'] = '*';
         set.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
@@ -116,23 +130,25 @@ const app = new Elysia(serverConfig.elysia)
     })
     .onAfterResponse(({ request, set }) => {
         const path = new URL(request.url).pathname;
-        const requestId = crypto.randomUUID();
+        const requestId = getOrCreateRequestId(request);
         log('INFO', 'http.request.completed', {
             requestId,
             method: request.method,
             path,
             statusCode: set.status,
         });
+        requestIds.delete(request);
     })
     .onError(({ request, code, error }) => {
         const path = new URL(request.url).pathname;
-        const requestId = crypto.randomUUID();
+        const requestId = getOrCreateRequestId(request);
         logError('http.request.failed', error, {
             requestId,
             method: request.method,
             path,
             errorCode: code,
         });
+        requestIds.delete(request);
     })
     .use(
         staticPlugin({
@@ -162,7 +178,9 @@ const app = new Elysia(serverConfig.elysia)
     // LNURL-pay endpoint (/.well-known/lnurlp/{username})
     .get(
         '/.well-known/lnurlp/:username',
-        ({ params: { username } }): Static<typeof lnurlPayResponseSchema> => {
+        ({ params: { username }, request }): Static<typeof lnurlPayResponseSchema> => {
+            const requestId = getOrCreateRequestId(request);
+            log('INFO', 'endpoint.lnurlpay.metadata_served', { requestId, username });
             return {
                 status: 'OK',
                 commentAllowed: 140,
@@ -189,7 +207,14 @@ const app = new Elysia(serverConfig.elysia)
     // Payment callback endpoint
     .get(
         '/api/lightning-address/:username/callback',
-        async ({ params: { username }, query }): Promise<Static<typeof paymentCallbackResponseSchema>> => {
+        async ({ params: { username }, query, request }): Promise<Static<typeof paymentCallbackResponseSchema>> => {
+            const requestId = getOrCreateRequestId(request);
+            log('INFO', 'endpoint.lightning.callback.received', {
+                requestId,
+                username,
+                amountMsat: query.amount,
+                hasComment: Boolean(query.comment),
+            });
             // Parse required LNURL-pay callback parameters
             const {
                 amount, // Amount in millisatoshis
@@ -198,7 +223,7 @@ const app = new Elysia(serverConfig.elysia)
 
             // Validate required parameters
             if (!amount || !username) {
-                log('WARN', 'endpoint.lightning.callback.missing_parameters', { username, amount });
+                log('WARN', 'endpoint.lightning.callback.missing_parameters', { requestId, username, amount });
                 throw new Error('Missing required parameters');
             }
 
@@ -207,15 +232,33 @@ const app = new Elysia(serverConfig.elysia)
             if (!isSparkAddress(username)) {
                 const sparkFromDatabase = databaseService.getSparkAddressByUsername(username);
                 if (!sparkFromDatabase) {
-                    log('WARN', 'endpoint.lightning.callback.username_not_found', { username });
+                    log('WARN', 'endpoint.lightning.callback.username_not_found', { requestId, username });
                     return { status: 'ERROR', reason: 'Username not found' };
                 }
 
                 sparkAddress = sparkFromDatabase;
+                log('INFO', 'endpoint.lightning.callback.username_resolved', { requestId, username });
             }
 
             // FIXME: use the username to get the spark address
-            const pr = await createInvoiceForSparkAddress(sparkAddress, Math.floor(Number(amount) / 1000), comment ?? 'Invoice');
+            const amountSat = Math.floor(Number(amount) / 1000);
+            let pr: string;
+            try {
+                pr = await createInvoiceForSparkAddress(sparkAddress, amountSat, comment ?? 'Invoice');
+            } catch (error) {
+                logError('endpoint.lightning.callback.invoice_creation_failed', error, {
+                    requestId,
+                    username,
+                    sparkAddress,
+                    amountSat,
+                });
+                throw error;
+            }
+            log('INFO', 'endpoint.lightning.callback.invoice_created', {
+                requestId,
+                username,
+                amountSat,
+            });
 
             return {
                 status: 'OK',
@@ -251,18 +294,20 @@ const app = new Elysia(serverConfig.elysia)
     // API endpoint to associate username with spark address
     .post(
         '/api/users',
-        ({ body }): Static<typeof createUserResponseSchema> => {
+        ({ body, request }): Static<typeof createUserResponseSchema> => {
+            const requestId = getOrCreateRequestId(request);
             const { username, sparkAddress } = body;
+            log('INFO', 'endpoint.users.create.received', { requestId, username });
 
             // Validate input
             if (!username || !sparkAddress) {
-                log('WARN', 'endpoint.users.create.validation_failed', { username, sparkAddress });
+                log('WARN', 'endpoint.users.create.validation_failed', { requestId, username, sparkAddress });
                 throw new Error('Username and spark address are required');
             }
 
             // Check if username already exists
             if (databaseService.getSparkAddressByUsername(username)) {
-                log('WARN', 'endpoint.users.create.username_exists', { username });
+                log('WARN', 'endpoint.users.create.username_exists', { requestId, username });
                 return {
                     status: 'error',
                     message: `Username ${username} already exists`,
@@ -272,7 +317,7 @@ const app = new Elysia(serverConfig.elysia)
             // Check if spark address is already associated with another username
             const existingUsername = databaseService.getUsernameBySparkAddress(sparkAddress);
             if (existingUsername) {
-                log('WARN', 'endpoint.users.create.spark_address_exists', { sparkAddress, existingUsername });
+                log('WARN', 'endpoint.users.create.spark_address_exists', { requestId, sparkAddress, existingUsername });
                 return {
                     status: 'error',
                     message: 'Spark address is already associated with another username',
@@ -285,6 +330,7 @@ const app = new Elysia(serverConfig.elysia)
             const success = databaseService.upsertUser(username, sparkAddress);
 
             if (success) {
+                log('INFO', 'endpoint.users.create.success', { requestId, username });
                 return {
                     status: 'ok',
                     message: 'Username successfully associated with spark address',
@@ -292,7 +338,7 @@ const app = new Elysia(serverConfig.elysia)
                     sparkAddress,
                 };
             } else {
-                log('ERROR', 'endpoint.users.create.failed', { username, sparkAddress });
+                log('ERROR', 'endpoint.users.create.failed', { requestId, username, sparkAddress });
                 return {
                     status: 'error',
                     message: 'Failed to associate username with spark address',
@@ -318,17 +364,19 @@ const app = new Elysia(serverConfig.elysia)
     // API endpoint to get spark address by username
     .get(
         '/api/users/:username',
-        ({ params: { username } }): Static<typeof getUserResponseSchema> => {
+        ({ params: { username }, request }): Static<typeof getUserResponseSchema> => {
+            const requestId = getOrCreateRequestId(request);
             const sparkAddress = databaseService.getSparkAddressByUsername(username);
 
             if (!sparkAddress) {
-                log('WARN', 'endpoint.users.get_by_username.not_found', { username });
+                log('WARN', 'endpoint.users.get_by_username.not_found', { requestId, username });
                 return {
                     status: 'error',
                     message: `Username ${username} not found`,
                 };
             }
 
+            log('INFO', 'endpoint.users.get_by_username.found', { requestId, username });
             return {
                 status: 'ok',
                 username,
@@ -351,17 +399,19 @@ const app = new Elysia(serverConfig.elysia)
     // API endpoint to get username by spark address
     .get(
         '/api/users/by-spark-address/:sparkAddress',
-        ({ params: { sparkAddress } }): Static<typeof getUserResponseSchema> => {
+        ({ params: { sparkAddress }, request }): Static<typeof getUserResponseSchema> => {
+            const requestId = getOrCreateRequestId(request);
             const username = databaseService.getUsernameBySparkAddress(sparkAddress);
 
             if (!username) {
-                log('WARN', 'endpoint.users.get_by_spark_address.not_found', { sparkAddress });
+                log('WARN', 'endpoint.users.get_by_spark_address.not_found', { requestId, sparkAddress });
                 return {
                     status: 'error',
                     message: `No username found for spark address: ${sparkAddress}`,
                 };
             }
 
+            log('INFO', 'endpoint.users.get_by_spark_address.found', { requestId, username });
             return {
                 status: 'ok',
                 username,
