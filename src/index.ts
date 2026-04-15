@@ -1,14 +1,17 @@
+import { statSync } from 'node:fs';
 import { staticPlugin } from '@elysiajs/static';
 import { swagger } from '@elysiajs/swagger';
 import { Elysia, type Static, t } from 'elysia';
 import config from './config';
-import serverConfig from './config-server';
+import serverConfig, { tlsCertPath, tlsKeyPath } from './config-server';
 import { databaseService } from './database-service';
 import { createInvoiceForSparkAddress, initializeSparkWallet, isSparkAddress } from './spark-service';
 
 const pckg = require('../package.json');
 
 type LogMeta = Record<string, unknown>;
+
+const TLS_RELOAD_CHECK_INTERVAL_MS = 60_000;
 
 const sanitizeOneLine = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
@@ -38,6 +41,55 @@ const log = (level: 'INFO' | 'WARN' | 'ERROR', event: string, meta?: LogMeta): v
 const logError = (event: string, error: unknown, meta?: LogMeta): void => {
     const details = error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : { value: String(error) };
     log('ERROR', event, { ...meta, error: details });
+};
+
+const getTlsFileChangedAt = (path: string): number => {
+    const stats = statSync(path);
+    return Math.max(stats.mtimeMs, stats.ctimeMs);
+};
+
+const startTlsReloadWatcher = (): void => {
+    if (!serverConfig.elysia?.serve?.tls) {
+        return;
+    }
+
+    const watchPath = tlsCertPath || tlsKeyPath;
+
+    if (!watchPath) {
+        return;
+    }
+
+    let initialChangedAt: number;
+
+    try {
+        initialChangedAt = getTlsFileChangedAt(watchPath);
+    } catch (error) {
+        logError('tls.reload_watcher.start_failed', error, { path: watchPath });
+        return;
+    }
+
+    log('INFO', 'tls.reload_watcher.started', {
+        intervalMs: TLS_RELOAD_CHECK_INTERVAL_MS,
+        path: watchPath,
+    });
+
+    const timer = setInterval(() => {
+        try {
+            const changedAt = getTlsFileChangedAt(watchPath);
+            if (changedAt <= initialChangedAt) return;
+
+            log('WARN', 'tls.reload_watcher.detected_change', {
+                path: watchPath,
+                initialChangedAt,
+                changedAt,
+            });
+            process.exit(0);
+        } catch (error) {
+            logError('tls.reload_watcher.check_failed', error, { path: watchPath });
+        }
+    }, TLS_RELOAD_CHECK_INTERVAL_MS);
+
+    timer.unref();
 };
 
 const requestIds = new WeakMap<Request, string>();
@@ -447,6 +499,7 @@ log('INFO', 'server.started', {
 log('INFO', 'server.swagger.available', {
     url: `http://${app.server?.hostname}:${app.server?.port}/swagger`,
 });
+startTlsReloadWatcher();
 
 export type App = typeof app;
 export { app };
