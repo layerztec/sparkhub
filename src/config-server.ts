@@ -1,3 +1,5 @@
+import type { ElysiaConfig } from 'elysia';
+
 export const tlsCertPath = ''; // path to .crt
 export const tlsKeyPath = ''; // path to .key
 
@@ -11,7 +13,7 @@ export const config = {
         //         key: Bun.file(tlsKeyPath),
         //     },
         // },
-    },
+    } as ElysiaConfig<''>,
 };
 
 export default config;
