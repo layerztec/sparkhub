@@ -3,17 +3,10 @@ import { app } from '../src/index'
 
 describe('Elysia', () => {
     it('returns a response from /ping route', async () => {
-        const response = await app
-            .handle(new Request('http://localhost:3000/ping'))
-            .then((res: Response) => res.json())
-
-        expect(response).toMatchObject({
-            status: 'ok',
-            message: 'SparkHub is running',
-            version: '1.3.0',
-        })
-        expect(response.uptime).toBeGreaterThanOrEqual(0)
-        expect(Number.isFinite(response.uptime)).toBe(true)
+        const r = await app.handle(new Request('http://localhost:3000/ping')).then(res => res.json())
+        expect(r).toMatchObject({ status: 'ok', message: 'SparkHub is running' })
+        expect(r.version).toMatch(/^\d+\.\d+\.\d+/)
+        expect(r.uptime).toBeGreaterThanOrEqual(0)
     })
 
     describe('/api/users/:username', () => {

@@ -21,5 +21,5 @@ function App() {
     );
 }
 
-// @ts-ignore
+// @ts-expect-error
 render(<App />, document.getElementById('app'));
