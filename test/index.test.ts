@@ -7,10 +7,13 @@ describe('Elysia', () => {
             .handle(new Request('http://localhost:3000/ping'))
             .then((res: Response) => res.json())
 
-        expect(response).toEqual({
+        expect(response).toMatchObject({
             status: 'ok',
-            message: 'SparkHub is running'
+            message: 'SparkHub is running',
+            version: '1.3.0',
         })
+        expect(response.uptime).toBeGreaterThanOrEqual(0)
+        expect(Number.isFinite(response.uptime)).toBe(true)
     })
 
     describe('/api/users/:username', () => {

@@ -106,6 +106,8 @@ const getOrCreateRequestId = (request: Request): string => {
 const pingResponseSchema = t.Object({
     status: t.String(),
     message: t.String(),
+    version: t.String(),
+    uptime: t.Number(),
 });
 
 const lnurlPayResponseSchema = t.Object({
@@ -216,13 +218,22 @@ const app = new Elysia(serverConfig.elysia)
     )
 
     // Health check endpoint
-    .get('/ping', (): Static<typeof pingResponseSchema> => ({ status: 'ok', message: 'SparkHub is running' }), {
-        response: pingResponseSchema,
-        detail: {
-            summary: 'Health check',
-            description: 'Returns the status of the service',
-        },
-    })
+    .get(
+        '/ping',
+        (): Static<typeof pingResponseSchema> => ({
+            status: 'ok',
+            message: 'SparkHub is running',
+            version: pckg.version,
+            uptime: process.uptime(),
+        }),
+        {
+            response: pingResponseSchema,
+            detail: {
+                summary: 'Health check',
+                description: 'Returns the status of the service',
+            },
+        }
+    )
 
     // Serve the frontend
     .get('/', () => Bun.file('public/index.html'))
