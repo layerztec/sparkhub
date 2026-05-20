@@ -1,0 +1,7 @@
+.git/
+.github/
+test/
+docs/
+*.sqlite
+src/config.ts
+src/config-server.ts
