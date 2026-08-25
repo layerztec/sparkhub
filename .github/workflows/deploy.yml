@@ -1,0 +1,64 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/var/www/sparkhub' }}
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'master'
+      )
+    steps:
+      - name: Checkout code at deployed revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Build
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Prune to production dependencies
+        run: |
+          rm -rf node_modules
+          bun install --production --frozen-lockfile
+
+      - name: Deploy to VPS
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass rsync
+          SSH_OPTS="-p ${SSH_PORT} -o StrictHostKeyChecking=accept-new"
+          TARGET="${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+
+          export RSYNC_RSH="ssh ${SSH_OPTS}"
+          sshpass -e rsync -avz --delete-delay --delay-updates \
+            --exclude-from=deploy.exclude \
+            ./ "${TARGET}:${DEPLOY_PATH}/"

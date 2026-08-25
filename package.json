@@ -7,6 +7,7 @@
     "build": "bun build src/client/app.tsx --outdir dist --target browser --production",
     "build:watch": "bun build src/client/app.tsx --outdir dist --target browser --watch",
     "start": "bun run build && PORT=443 bun run src/index.ts",
+    "start:watch": "NODE_ENV=production PORT=443 bun run --watch src/index.ts",
     "dev:full": "concurrently \"bun run dev\" \"bun run build:watch\"",
     "tslint": "tsc --noEmit",
     "check": "biome check src/",
